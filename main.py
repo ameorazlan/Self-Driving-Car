@@ -17,9 +17,9 @@ np.random.seed(0)
 TRAIN_VAL_SPLIT = 0.75
 LEARNING_RATE = 0.001
 BATCH_SIZE = 32
-SAMPLES_PER_EPOCH = 2000    
+SAMPLES_PER_EPOCH = 20000    
 EPOCHS = 10
-DATA_DIRECTORY = "/mnt/c/Users/User/Self-Driving-Car/data"
+DATA_DIRECTORY = "C:\\Users\\User\\Self-Driving-Car\\data"
 
 def load_data():
     data = pd.read_csv(os.path.join(DATA_DIRECTORY, 'driving_log.csv'))
@@ -28,8 +28,8 @@ def load_data():
     data.columns = ['center', 'left', 'right', 'steering', 'throttle', 'reverse', 'speed']
 
     #Change the file locations of image data
-    new_directory = "/mnt/c/Users/User/Self-Driving-Car/data/IMG"
-    data.iloc[:, :3] = data.iloc[:, :3].map(lambda x: rename_data(x, new_directory))
+    #new_directory = "/mnt/c/Users/User/Self-Driving-Car/data/IMG"
+    #data.iloc[:, :3] = data.iloc[:, :3].map(lambda x: rename_data(x, new_directory))
 
     X = data[['center', 'left', 'right']].values
     Y = data[['steering']].values
@@ -51,9 +51,9 @@ def train_CNN(model, X_train, X_valid, Y_train, Y_valid):
     
     model.compile(loss="mean_squared_error", optimizer=Adam(learning_rate=LEARNING_RATE))
 
-    model.fit_generator(batch_generator("data", X_train, Y_train, BATCH_SIZE, True),
-                        SAMPLES_PER_EPOCH,
-                        EPOCHS,
+    model.fit(batch_generator("data", X_train, Y_train, BATCH_SIZE, True),
+                        steps_per_epoch=SAMPLES_PER_EPOCH,
+                        epochs=EPOCHS,
                         max_queue_size=1,
                         validation_data=batch_generator("data", X_valid, Y_valid, BATCH_SIZE, False),
                         validation_steps=len(X_valid) // BATCH_SIZE,
