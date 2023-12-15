@@ -152,3 +152,21 @@ def batch_generator(data_dir, image_paths, steering_angles, batch_size, is_train
             if i == batch_size:
                 break
         yield images, processed_steering_angles
+
+def preprocess_pytorch(data_dir, image_paths, steering_angles, image_count, is_training):
+    images = np.empty([image_count, IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS])
+    processed_steering_angles = np.empty(image_count)
+    for index in range(image_count):
+            center, left, right = image_paths[index]
+            steering_angle = steering_angles[index]
+            # argumentation
+            #if is_training and np.random.rand() < 0.6:
+            #    image, steering_angle = augument(data_dir, center, left, right, steering_angle)
+            #else:
+            image = load_image(data_dir, center) 
+            # add the image and steering angle to the batch
+            images[index] = preprocess(image)
+            #print("done preprocess")
+            #images[i] = image
+            processed_steering_angles[index] = steering_angle
+    return images, processed_steering_angles

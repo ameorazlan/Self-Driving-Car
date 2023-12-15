@@ -3,12 +3,20 @@ import numpy as np
 from sklearn.model_selection import train_test_split 
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint
-from preprocess import INPUT_SHAPE, batch_generator
+from preprocess import INPUT_SHAPE, batch_generator, preprocess_pytorch
 import argparse
+
 import os
 import tensorflow as tf
 
+import torch
+from torch.utils.data import DataLoader, TensorDataset
+from torch.optim import Adam
+from torch.nn import MSELoss
+from torchvision.transforms import ToTensor
+
 from model import cnn
+from pytorch_model import pytorchCNN
 
 #set seed
 np.random.seed(0)
@@ -59,6 +67,67 @@ def train_CNN(model, X_train, X_valid, Y_train, Y_valid):
                         validation_steps=len(X_valid) // BATCH_SIZE,
                         callbacks=[checkpoint],
                         verbose=1)
+    
+def train_pytorchCNN(model, X_train, X_valid, Y_train, Y_valid):
+    #Preprocess images for dataloaders
+    X_train, Y_train = preprocess_pytorch("data", X_train, Y_train, len(X_train), True)
+    X_valid, Y_valid = preprocess_pytorch("data", X_valid, Y_valid, len(X_valid), True)
+    #Convert the training data to torch tensors
+    X_train_tensor = torch.tensor(X_train).float().permute(0, 3, 1, 2)
+    X_valid_tensor = torch.tensor(X_valid).float().permute(0, 3, 1, 2)
+    Y_train_tensor = torch.tensor(Y_train).float()
+    Y_valid_tensor = torch.tensor(Y_valid).float()
+
+    #Create TensorDatasets for training and validation data
+    train_dataset = TensorDataset(X_train_tensor, Y_train_tensor)
+    valid_dataset = TensorDataset(X_valid_tensor, Y_valid_tensor)
+
+    #Create DataLoaders for training and validation data
+    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+    valid_loader = DataLoader(valid_dataset, batch_size=BATCH_SIZE, shuffle=False)
+
+    # Define the loss function and optimizer
+    loss_function = MSELoss()
+    optimizer = Adam(model.parameters(), lr=LEARNING_RATE)
+
+    #Training loop
+    for epoch in range(EPOCHS):
+        model.train()
+        running_loss = 0.0
+        for inputs, targets in train_loader:
+            # Zero the parameter gradients
+            optimizer.zero_grad()
+
+            # Forward pass
+            outputs = model(inputs)
+            loss = loss_function(outputs, targets)
+
+            # Backward pass and optimize
+            loss.backward()
+            optimizer.step()
+
+            # Print statistics
+            running_loss += loss.item()
+
+        print(f'Epoch {epoch+1}/{EPOCHS}, Loss: {running_loss/len(train_loader)}')
+
+        # Validation loop
+        model.eval()
+        val_loss = 0.0
+        with torch.no_grad():
+            for inputs, targets in valid_loader:
+                outputs = model(inputs)
+                loss = loss_function(outputs, targets)
+                val_loss += loss.item()
+
+        print(f'Validation Loss: {val_loss/len(valid_loader)}')
+
+    return model
+
+def save_model(model, modelFileName):
+    print("Saving model: ", modelFileName)
+    folder = "models/"
+    torch.save(model, folder+modelFileName)
 
 def main():
     #print(tf.config.list_physical_devices('GPU'))
@@ -66,10 +135,13 @@ def main():
     X_train, X_valid, Y_train, Y_valid = load_data()
     #print(X_train[0])
 
+    pytorch_cnn = pytorchCNN()
+    pytorch_cnn = train_pytorchCNN(pytorch_cnn, X_train, X_valid, Y_train, Y_valid)
+    save_model(pytorch_cnn, "pytorchCNN")
+
     model = cnn()
 
-    train_CNN(model, X_train, X_valid, Y_train, Y_valid)
-    
+    train_CNN(model, X_train, X_valid, Y_train, Y_valid)   
 
 main()
 
