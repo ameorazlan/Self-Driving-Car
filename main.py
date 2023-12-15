@@ -5,6 +5,7 @@ from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint
 from preprocess import INPUT_SHAPE, batch_generator, preprocess_pytorch
 import argparse
+import time
 
 import os
 import tensorflow as tf
@@ -43,7 +44,7 @@ def load_data():
     Y = data[['steering']].values
 
     X_train, X_valid, Y_train, Y_valid = train_test_split(X, Y, test_size=TRAIN_VAL_SPLIT, random_state=0)
-    
+    print("Loaded data")
     return X_train, X_valid, Y_train, Y_valid
 
 def rename_data(row, new_directory):
@@ -57,7 +58,7 @@ def train_CNN(model, X_train, X_valid, Y_train, Y_valid):
                                  save_best_only=True,
                                  mode='min')
     
-    model.compile(loss="mean_squared_error", optimizer=Adam(learning_rate=LEARNING_RATE))
+    model.compile(loss="mean_squared_error", optimizer=Adam(lr=LEARNING_RATE))
 
     model.fit(batch_generator("data", X_train, Y_train, BATCH_SIZE, True),
                         steps_per_epoch=SAMPLES_PER_EPOCH,
@@ -68,7 +69,9 @@ def train_CNN(model, X_train, X_valid, Y_train, Y_valid):
                         callbacks=[checkpoint],
                         verbose=1)
     
-def train_pytorchCNN(model, X_train, X_valid, Y_train, Y_valid):
+def train_pytorchCNN(device, model, X_train, X_valid, Y_train, Y_valid):
+    print("Training model")
+    model = model.to(device)
     #Preprocess images for dataloaders
     X_train, Y_train = preprocess_pytorch("data", X_train, Y_train, len(X_train), True)
     X_valid, Y_valid = preprocess_pytorch("data", X_valid, Y_valid, len(X_valid), True)
@@ -90,11 +93,15 @@ def train_pytorchCNN(model, X_train, X_valid, Y_train, Y_valid):
     loss_function = MSELoss()
     optimizer = Adam(model.parameters(), lr=LEARNING_RATE)
 
+    trainStart = time.time()
     #Training loop
     for epoch in range(EPOCHS):
+        epochStart = time.time()
         model.train()
         running_loss = 0.0
         for inputs, targets in train_loader:
+            #Send input and target to device
+            inputs, targets = inputs.to(device), targets.to(device)
             # Zero the parameter gradients
             optimizer.zero_grad()
 
@@ -108,7 +115,7 @@ def train_pytorchCNN(model, X_train, X_valid, Y_train, Y_valid):
 
             # Print statistics
             running_loss += loss.item()
-
+        epochEnd = time.time()
         print(f'Epoch {epoch+1}/{EPOCHS}, Loss: {running_loss/len(train_loader)}')
 
         # Validation loop
@@ -116,11 +123,18 @@ def train_pytorchCNN(model, X_train, X_valid, Y_train, Y_valid):
         val_loss = 0.0
         with torch.no_grad():
             for inputs, targets in valid_loader:
+                #Send input and target to device
+                inputs, targets = inputs.to(device), targets.to(device)
                 outputs = model(inputs)
                 loss = loss_function(outputs, targets)
                 val_loss += loss.item()
 
         print(f'Validation Loss: {val_loss/len(valid_loader)}')
+        epochTimeTaken = (epochEnd - epochStart) / 60
+        print("time to train epoch: ", epochTimeTaken, " minutes\n")
+    trainEnd = time.time()
+    trainTimeTaken = (trainEnd - trainStart) / 60
+    print("time to train: ", trainTimeTaken, " minutes\n")
 
     return model
 
@@ -134,14 +148,16 @@ def main():
     
     X_train, X_valid, Y_train, Y_valid = load_data()
     #print(X_train[0])
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print("Device: ", device)
 
     pytorch_cnn = pytorchCNN()
-    pytorch_cnn = train_pytorchCNN(pytorch_cnn, X_train, X_valid, Y_train, Y_valid)
-    save_model(pytorch_cnn, "pytorchCNN")
+    pytorch_cnn = train_pytorchCNN(device, pytorch_cnn, X_train, X_valid, Y_train, Y_valid)
+    save_model(pytorch_cnn, "pytorchCNN.h5")
 
-    model = cnn()
+    #model = cnn()
 
-    train_CNN(model, X_train, X_valid, Y_train, Y_valid)   
+    #train_CNN(model, X_train, X_valid, Y_train, Y_valid)   
 
 main()
 

@@ -169,4 +169,5 @@ def preprocess_pytorch(data_dir, image_paths, steering_angles, image_count, is_t
             #print("done preprocess")
             #images[i] = image
             processed_steering_angles[index] = steering_angle
+    print("Finished preprocessing data")
     return images, processed_steering_angles
