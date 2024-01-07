@@ -19,9 +19,12 @@ class pytorchCNN(nn.Module):
         self.fc1 = nn.Linear(in_features=64*1*18, out_features=100)  # Adjust the in_features depending on the output of the last conv layer
         self.fc2 = nn.Linear(in_features=100, out_features=50)
         self.fc3 = nn.Linear(in_features=50, out_features=10)
-        self.fc4 = nn.Linear(in_features=10, out_features=1)
+        self.fc4 = nn.Linear(in_features=11, out_features=2)
         
     def forward(self, x):
+        #x is tuple here
+        #split x into x, v
+        x, v = x
         x = self.lambda_layer(x)
         x = F.elu(self.conv1(x))
         x = F.elu(self.conv2(x))
@@ -33,7 +36,8 @@ class pytorchCNN(nn.Module):
         x = F.elu(self.fc1(x))
         x = F.elu(self.fc2(x))
         x = F.elu(self.fc3(x))
-        x = self.fc4(x)
+        #pass in v only in last last layer
+        x = self.fc4(x, v)
         return x
 
 class LambdaLayer(nn.Module):

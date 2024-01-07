@@ -39,7 +39,7 @@ model = None
 prev_image_array = None
 
 #set min/max speed for our autonomous car
-MAX_SPEED = 25
+MAX_SPEED = 30
 MIN_SPEED = 10
 
 #and a speed limit
@@ -129,7 +129,8 @@ def send_control(steering_angle, throttle):
 if __name__ == '__main__':
 
     #load model
-    model = torch.load('C:\\Users\\User\\Self-Driving-Car\\models\\pytorchCNN.h5')
+    plain_model = torch.load('C:\\Users\\User\\Self-Driving-Car\\models\\pytorchCNN.h5')
+    model = torch.load('C:\\Users\\User\\Self-Driving-Car\\models\\augment(data_new)_pytorchCNN.h5')
     #model = load_model(args.model)
     image_folder = 'C:\\Users\\User\\Self-Driving-Car\\test_data' 
     if image_folder != '':

@@ -82,27 +82,32 @@ def random_shadow(image):
     """
     Generates and adds random shadow
     """
+    # Assuming image.shape is in the form of (height, width, channels)
+    IMAGE_HEIGHT, IMAGE_WIDTH, _ = image.shape
+
     # (x1, y1) and (x2, y2) forms a line
-    # xm, ym gives all the locations of the image
     x1, y1 = IMAGE_WIDTH * np.random.rand(), 0
     x2, y2 = IMAGE_WIDTH * np.random.rand(), IMAGE_HEIGHT
+
+    # Create an empty mask with the same width and height as the image
+    mask = np.zeros((IMAGE_HEIGHT, IMAGE_WIDTH), dtype=np.bool_)
+
+    # Generate the mask using the line equation derived from (x1, y1) and (x2, y2)
     xm, ym = np.mgrid[0:IMAGE_HEIGHT, 0:IMAGE_WIDTH]
+    mask[(ym - y1) * (x2 - x1) - (y2 - y1) * (xm - x1) > 0] = True
 
-    # mathematically speaking, we want to set 1 below the line and zero otherwise
-    # Our coordinate is up side down.  So, the above the line: 
-    # (ym-y1)/(xm-x1) > (y2-y1)/(x2-x1)
-    # as x2 == x1 causes zero-division problem, we'll write it in the below form:
-    # (ym-y1)*(x2-x1) - (y2-y1)*(xm-x1) > 0
-    mask = np.zeros_like(image[:, :, 1])
-    mask[(ym - y1) * (x2 - x1) - (y2 - y1) * (xm - x1) > 0] = 1
+    # Choose which side of the line is shadowed and adjust saturation
+    cond = np.random.randint(2)
+    if cond == 0:
+        mask = ~mask  # Invert mask if cond is 0
 
-    # choose which side should have shadow and adjust saturation
-    cond = mask == np.random.randint(2)
-    s_ratio = np.random.uniform(low=0.2, high=0.5)
-
-    # adjust Saturation in HLS(Hue, Light, Saturation)
+    # Convert image to HLS
     hls = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
-    hls[:, :, 1][cond] = hls[:, :, 1][cond] * s_ratio
+    # Adjust saturation in HLS(Hue, Light, Saturation)
+    s_ratio = np.random.uniform(low=0.2, high=0.5)
+    hls[..., 1][mask] = hls[..., 1][mask] * s_ratio
+
+    # Convert back to RGB and return
     return cv2.cvtColor(hls, cv2.COLOR_HLS2RGB)
 
 
@@ -160,11 +165,11 @@ def preprocess_pytorch(data_dir, image_paths, steering_angles, image_count, is_t
             center, left, right = image_paths[index]
             steering_angle = steering_angles[index]
             # argumentation
-            #if is_training and np.random.rand() < 0.6:
-            #    image, steering_angle = augument(data_dir, center, left, right, steering_angle)
-            #else:
-            image = load_image(data_dir, center) 
-            # add the image and steering angle to the batch
+            if is_training and np.random.rand() < 0.6:
+                image, steering_angle = augument(data_dir, center, left, right, steering_angle)
+            else:
+                image = load_image(data_dir, center) 
+                # add the image and steering angle to the batch
             images[index] = preprocess(image)
             #print("done preprocess")
             #images[i] = image

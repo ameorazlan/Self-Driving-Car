@@ -4,17 +4,14 @@ from sklearn.model_selection import train_test_split
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint
 from preprocess import INPUT_SHAPE, batch_generator, preprocess_pytorch
-import argparse
 import time
 
 import os
-import tensorflow as tf
 
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 from torch.optim import Adam
 from torch.nn import MSELoss
-from torchvision.transforms import ToTensor
 
 from model import cnn
 from pytorch_model import pytorchCNN
@@ -28,7 +25,7 @@ LEARNING_RATE = 0.001
 BATCH_SIZE = 32
 SAMPLES_PER_EPOCH = 20000    
 EPOCHS = 10
-DATA_DIRECTORY = "C:\\Users\\User\\Self-Driving-Car\\data"
+DATA_DIRECTORY = "C:\\Users\\User\\Self-Driving-Car\\data_new"
 
 def load_data():
     data = pd.read_csv(os.path.join(DATA_DIRECTORY, 'driving_log.csv'))
@@ -42,6 +39,11 @@ def load_data():
 
     X = data[['center', 'left', 'right']].values
     Y = data[['steering']].values
+    #add in throttle as output for model
+    NewY = data[['steering', 'throttle']].values
+    V = data['speed'].values
+
+    #Maybe create own shuffling method if scikit learn doesnt allow to return the reordered indexes
 
     X_train, X_valid, Y_train, Y_valid = train_test_split(X, Y, test_size=TRAIN_VAL_SPLIT, random_state=0)
     print("Loaded data")
@@ -73,14 +75,15 @@ def train_pytorchCNN(device, model, X_train, X_valid, Y_train, Y_valid):
     print("Training model")
     model = model.to(device)
     #Preprocess images for dataloaders
-    X_train, Y_train = preprocess_pytorch("data", X_train, Y_train, len(X_train), True)
-    X_valid, Y_valid = preprocess_pytorch("data", X_valid, Y_valid, len(X_valid), True)
+    X_train, Y_train = preprocess_pytorch("data_new", X_train, Y_train, len(X_train), True)
+    X_valid, Y_valid = preprocess_pytorch("data_new", X_valid, Y_valid, len(X_valid), True)
     #Convert the training data to torch tensors
     X_train_tensor = torch.tensor(X_train).float().permute(0, 3, 1, 2)
     X_valid_tensor = torch.tensor(X_valid).float().permute(0, 3, 1, 2)
     Y_train_tensor = torch.tensor(Y_train).float()
     Y_valid_tensor = torch.tensor(Y_valid).float()
 
+    #make it so that datasets combine the v variables
     #Create TensorDatasets for training and validation data
     train_dataset = TensorDataset(X_train_tensor, Y_train_tensor)
     valid_dataset = TensorDataset(X_valid_tensor, Y_valid_tensor)
@@ -153,7 +156,7 @@ def main():
 
     pytorch_cnn = pytorchCNN()
     pytorch_cnn = train_pytorchCNN(device, pytorch_cnn, X_train, X_valid, Y_train, Y_valid)
-    save_model(pytorch_cnn, "pytorchCNN.h5")
+    save_model(pytorch_cnn, "augment(data_new)_pytorchCNN.h5")
 
     #model = cnn()
 
