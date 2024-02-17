@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split 
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint
-from preprocess import INPUT_SHAPE, batch_generator, preprocess_pytorch
+from utils import INPUT_SHAPE, batch_generator, preprocess_pytorch
 import time
 
 import os

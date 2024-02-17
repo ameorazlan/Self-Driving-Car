@@ -27,7 +27,7 @@ from io import BytesIO
 from keras.models import load_model
 
 #helper class
-import preprocess
+import utils
 
 #initialize our server
 sio = socketio.Server()
@@ -38,7 +38,7 @@ model = None
 prev_image_array = None
 
 #set min/max speed for our autonomous car
-MAX_SPEED = 25
+MAX_SPEED = 15
 MIN_SPEED = 10
 
 #and a speed limit
@@ -47,21 +47,18 @@ speed_limit = MAX_SPEED
 #registering event handler for the server
 @sio.on('telemetry')
 def telemetry(sid, data):
-    print("In telemetry")
     if data:
-        #Current steering angle of the car
+        # The current steering angle of the car
         steering_angle = float(data["steering_angle"])
-        #Current throttle of the car
+        # The current throttle of the car, how hard to push peddle
         throttle = float(data["throttle"])
-        #Current speed of the car
+        # The current speed of the car
         speed = float(data["speed"])
-        #Current center image of the car
+        # The current image from the center camera of the car
         image = Image.open(BytesIO(base64.b64decode(data["image"])))
-
-        #Send control to the simulator
         try:
             image = np.asarray(image)       # from PIL image to numpy array
-            image = preprocess.preprocess(image) # apply the preprocessing
+            image = utils.preprocess(image) # apply the preprocessing
             image = np.array([image])       # the model expects 4D array
 
             # predict the steering angle for the image
@@ -78,7 +75,6 @@ def telemetry(sid, data):
 
             print('{} {} {}'.format(steering_angle, throttle, speed))
             send_control(steering_angle, throttle)
-
         except Exception as e:
             print(e)
 
@@ -86,9 +82,7 @@ def telemetry(sid, data):
         if args.image_folder != '':
             timestamp = datetime.utcnow().strftime('%Y_%m_%d_%H_%M_%S_%f')[:-3]
             image_filename = os.path.join(args.image_folder, timestamp)
-            image = image.reshape(image.shape[1:])  # This removes the first dimension
-            processed_image = Image.fromarray(image.astype('uint8'))  # Convert back to PIL image
-            processed_image.save('{}.jpg'.format(image_filename))
+            image.save('{}.jpg'.format(image_filename))
     else:
         
         sio.emit('manual', data={}, skip_sid=True)
@@ -115,15 +109,13 @@ if __name__ == '__main__':
     parser.add_argument(
         'model',
         type=str,
-        nargs='?',
-        default='C:\\Users\\User\\Self-Driving-Car\\model-001.h5',
         help='Path to model h5 file. Model should be on the same path.'
     )
     parser.add_argument(
         'image_folder',
         type=str,
         nargs='?',
-        default='C:\\Users\\User\\Self-Driving-Car\\test_data',
+        default='',
         help='Path to image folder. This is where the images from the run will be saved.'
     )
     args = parser.parse_args()

@@ -25,7 +25,7 @@ from io import BytesIO
 from keras.models import load_model
 
 #helper class
-import preprocess
+import utils
 
 import torch
 import torchvision.transforms as transforms
@@ -62,7 +62,7 @@ def telemetry(sid, data):
         #Send control to the simulator
         try:
             image = np.asarray(image)       # from PIL image to numpy array
-            image = preprocess.preprocess(image) # apply the preprocessing
+            image = utils.preprocess(image) # apply the preprocessing
             # Add batch dimension and convert to tensor
             image = torch.tensor(image).float().unsqueeze(0)
             # Permute to get the correct order (batch_size, channels, height, width)
