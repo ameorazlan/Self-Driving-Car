@@ -65,9 +65,10 @@ def detect_lane_in_image(image_path):
     # Creating a "weighted" image to overlay lines on original
     combo_image = cv2.addWeighted(resized_image, 0.8, line_image, 1, 0)
     
+    """
     # Check if output directories exist, if not, create them
-    output_dir_success = "Algorithm 5 Lane Images"
-    output_dir_unsuccessful = "Algorithm 5 Unsuccessful"
+    output_dir_success = "Server Run 1 Successful"
+    output_dir_unsuccessful = "Server Run 1 Unsuccessful"
 
     # Save the final image
     base_fname = os.path.splitext(os.path.basename(image_path))[0]
@@ -77,9 +78,9 @@ def detect_lane_in_image(image_path):
         save_path = os.path.join(output_dir_unsuccessful, base_fname + ".jpg")
     
     #cv2.imwrite(save_path, combo_image)
-
+    """
     # Append to CSV
-    csv_path = r"Algorithm_5_stats.csv"
+    csv_path = r"PyTorch_Federated_Client_3.csv"
     with open(csv_path, 'a', newline='') as csvfile:
         csv_writer = csv.writer(csvfile)
         if central_line:
@@ -89,13 +90,13 @@ def detect_lane_in_image(image_path):
             # If no line was detected, write filename and None
             csv_writer.writerow([os.path.basename(image_path), None, None])
 
-    print("Lane detection completed. Output saved to:", save_path)
+    #print("Lane detection completed. Output saved to:", save_path)
 
-image_dir = r"new_jungle_mouse_data\IMG"
+image_dir = r"pytorch_federated_client_run3"
 # List all files in the directory
 images = os.listdir(image_dir)
 
-center_images = [file for file in images if file.startswith('center')]
+center_images = [file for file in images]
 
 # Loop over the image files and apply the lane_detection function
 for i, image_file in enumerate(center_images):

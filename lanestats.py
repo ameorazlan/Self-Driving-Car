@@ -6,41 +6,19 @@ def analyze(csv_path, column_name='average'):
     # Load the CSV file into a pandas DataFrame
     df = pd.read_csv(csv_path)
     
-    # Ensure the column exists and is numeric
     if column_name in df.columns and pd.api.types.is_numeric_dtype(df[column_name]):
         # Drop NaN values for calculation purposes
         column_data = df[column_name].dropna()
         
-        # Define the conversion factor from units to meters (assuming 20 units = 0.4625 meters)
-        units_to_meters = 0.4625 / 20
+        # Subtract 160 from each value in the column
+        adjusted_column_data = (column_data - 160) / 80
         
-        # Calculate the number of bins needed for a 0.5 meter range based on conversion
-        bin_size_in_units = int(0.5 / units_to_meters)
-        
-        # Calculate histogram bins for the range with bins of size calculated above
-        offset_bins = range(-160, 161, bin_size_in_units)
-        counts, bin_edges = np.histogram(column_data - 160, bins=offset_bins)
-        bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
-        
-        # Calculate percentages
-        total_count = column_data.count()
-        percentages = (counts / total_count) * 100
-
-        # Plotting the distribution
-        plt.figure(figsize=(10, 6))
-        plt.bar(bin_centers * units_to_meters, percentages, width=bin_size_in_units * units_to_meters * 0.9, edgecolor='black')
-        
-        # Generate bin labels based on offsets from 160 in meters
-        bin_labels = [f"{(x * units_to_meters):.2f}-{(x + bin_size_in_units) * units_to_meters:.2f} m" 
-                      for x in bin_edges[:-1]]
-
-        plt.xlabel('Offset from Center Lane (m)')
-        plt.ylabel('Percentage of Occurrences (%)')
-        plt.title('Distribution of Lane Divergence')
-        plt.xticks(bin_centers * units_to_meters, bin_labels, rotation=45)
-        plt.xlim(-160 * units_to_meters, 160 * units_to_meters)  # Limiting x-axis to match meter units
+        # Plotting the histogram of the adjusted data
+        plt.hist(adjusted_column_data, bins=32, range=(-2, 2), edgecolor='black')
+        plt.title(f'Federated Client 3 (Stage 1) Deviation From Center Lane')
+        plt.xlabel(f'Meters')
+        plt.ylabel('Frequency')
         plt.grid(True)
-        plt.tight_layout()  # Adjust layout to fit labels
         plt.show()
             
         
@@ -62,7 +40,7 @@ def analyze(csv_path, column_name='average'):
         for i in range(len(counts)):
             print(f"{bin_edges[i]}-{bin_edges[i+1]-1}: {percentages[i]:.2f}%")
     else:
-        print(f"Column '{column_name}' does not exist or is not numeric.")
+        print(f"Column '{column_name}' does notw exist or is not numeric.")
 
-csv_path = r"Algorithm_5_stats.csv"
+csv_path = r"PyTorch_Federated_Client_3.csv"
 analyze(csv_path)

@@ -1,3 +1,5 @@
+#parsing command line arguments
+import argparse
 #decoding camera images
 import base64
 #for frametimestamp saving
@@ -21,14 +23,13 @@ from flask import Flask
 #input output
 from io import BytesIO
 
-#load our saved model
-from keras.models import load_model
-
 #helper class
 import utils
 
 import torch
-import torchvision.transforms as transforms
+
+#model
+from pytorch_model import pytorchCNN
 
 #initialize our server
 sio = socketio.Server()
@@ -39,8 +40,10 @@ model = None
 prev_image_array = None
 
 #set min/max speed for our autonomous car
-MAX_SPEED = 30
+MAX_SPEED = 20
 MIN_SPEED = 10
+
+set_speed = 17
 
 #and a speed limit
 speed_limit = MAX_SPEED
@@ -58,6 +61,7 @@ def telemetry(sid, data):
         speed = float(data["speed"])
         #Current center image of the car
         image = Image.open(BytesIO(base64.b64decode(data["image"])))
+        image_og = image
 
         #Send control to the simulator
         try:
@@ -84,6 +88,7 @@ def telemetry(sid, data):
             else:
                 speed_limit = MAX_SPEED
             throttle = 1.0 - steering_angle**2 - (speed/speed_limit)**2
+            #throttle = 1.2 - steering_angle ** 2 - (speed / set_speed) ** 2
 
             print('{} {} {}'.format(steering_angle, throttle, speed))
             send_control(steering_angle, throttle)
@@ -92,19 +97,10 @@ def telemetry(sid, data):
             print(e)
 
         # save frame
-        if image_folder != '':
+        if args.image_folder != '':
             timestamp = datetime.utcnow().strftime('%Y_%m_%d_%H_%M_%S_%f')[:-3]
-            image_filename = os.path.join(image_folder, timestamp)
-            # Assuming `image` is a PyTorch tensor with shape [1, channels, height, width]
-            image = image.squeeze(0)  # Remove the batch dimension
-            image = image.cpu().numpy()  # Convert to numpy array
-            image = np.transpose(image, (1, 2, 0))  # Change from CHW to HWC format for PIL
-            
-            # Convert to uint8 (Check the tensor range to correctly scale it, e.g., if it's [-1, 1] or [0, 1])
-            image = ((image * 0.5 + 0.5) * 255).astype(np.uint8)  # This scales and converts
-            
-            processed_image = Image.fromarray(image)  # Convert back to PIL image
-            processed_image.save('{}.jpg'.format(image_filename))
+            image_filename = os.path.join(args.image_folder, timestamp)
+            image_og.save('{}.jpg'.format(image_filename))
     else:
         
         sio.emit('manual', data={}, skip_sid=True)
@@ -127,19 +123,45 @@ def send_control(steering_angle, throttle):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Remote Driving')
+    parser.add_argument(
+        'model',
+        type=str,
+        help='Path to model h5 file. Model should be on the same path.'
+    )
+    parser.add_argument(
+        'image_folder',
+        type=str,
+        nargs='?',
+        default='',
+        help='Path to image folder. This is where the images from the run will be saved.'
+    )
+    args = parser.parse_args()
 
-    #load model
-    plain_model = torch.load('C:\\Users\\User\\Self-Driving-Car\\models\\pytorchCNN.h5')
-    model = torch.load('C:\\Users\\User\\Self-Driving-Car\\models\\augment(data_new)_pytorchCNN.h5')
-    #model = load_model(args.model)
-    image_folder = 'C:\\Users\\User\\Self-Driving-Car\\test_data' 
-    if image_folder != '':
-        print("Creating image folder at {}".format(image_folder))
-        if not os.path.exists(image_folder):
-            os.makedirs(image_folder)
+    model = pytorchCNN(0.5)
+    # check that model version is same as local PyTorch version
+    try:
+        checkpoint = torch.load(
+            args.model, map_location=lambda storage, loc: storage)
+        model.load_state_dict(checkpoint['state_dict'])
+
+    except KeyError:
+        checkpoint = torch.load(
+            args.model, map_location=lambda storage, loc: storage)
+        model = checkpoint['model']
+
+    except RuntimeError:
+        print("==> Please check using the same model as the checkpoint")
+        import sys
+        sys.exit()
+
+    if args.image_folder != '':
+        print("Creating image folder at {}".format(args.image_folder))
+        if not os.path.exists(args.image_folder):
+            os.makedirs(args.image_folder)
         else:
-            shutil.rmtree(image_folder)
-            os.makedirs(image_folder)
+            shutil.rmtree(args.image_folder)
+            os.makedirs(args.image_folder)
         print("RECORDING THIS RUN ...")
     else:
         print("NOT RECORDING THIS RUN ...")

@@ -95,7 +95,7 @@ def main():
 
 
     model = build_model()  
-    client = FlowerClient(model, args.data_dir, batch_size=40, nb_epoch=1, samples_per_epoch=21000, learning_rate=1e-4, test_size=0.2, keep_prob=0.5)
+    client = FlowerClient(model, args.data_dir, batch_size=40, nb_epoch=1, samples_per_epoch=4964, learning_rate=1e-4, test_size=0.2, keep_prob=0.5)
     fl.client.start_numpy_client(server_address="localhost:8080", client=client.to_client())
 
 if __name__ == "__main__":

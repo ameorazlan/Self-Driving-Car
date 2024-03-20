@@ -7,11 +7,22 @@ jungle_mouse_data/*
 new_jungle_mouse_data/*
 Latest Data Splits/*
 recordings/*
-Lane Images/*
-Algorithm 3 Lane Images/*
-Unsuccessful Lane Images/*
-Algorithm 3 Unsuccessful/*
-Algorithm 4 Lane Images/*
-Algorithm 4 Unsuccessful/*
-Algorithm 5 Lane Images/*
-Algorithm 5 Unsuccessful/*
+Lane Detection/Lane Images/*
+Lane Detection/Algorithm 3 Lane Images/*
+Lane Detection/Unsuccessful Lane Images/*
+Lane Detection/Algorithm 3 Unsuccessful/*
+Lane Detection/Algorithm 4 Lane Images/*
+Lane Detection/Algorithm 4 Unsuccessful/*
+Lane Detection/Algorithm 5 Lane Images/*
+Lane Detection/Algorithm 5 Unsuccessful/*
+central_run1/*
+Figures/*
+keyvoard_data/*
+federatedrun_split1/*
+federatedrun_split2/*
+federatedrun_split3/*
+model_with_speed_throttle/*
+pytorch_run1/*
+pytorch_federated_client_run1/*
+pytorch_federated_client_run2/*
+pytorch_federated_client_run3/*

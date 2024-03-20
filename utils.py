@@ -1,7 +1,8 @@
 import cv2, os
 import numpy as np
 import matplotlib.image as mpimg
-
+import torch
+from torch.utils.data import Dataset
 
 IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS = 66, 200, 3
 INPUT_SHAPE = (IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS)
@@ -121,9 +122,9 @@ def random_brightness(image):
     return cv2.cvtColor(hsv, cv2.COLOR_HSV2RGB)
 
 
-def augument(data_dir, center, left, right, steering_angle, range_x=100, range_y=10):
+def augment(data_dir, center, left, right, steering_angle, range_x=100, range_y=10):
     """
-    Generate an augumented image and adjust steering angle.
+    Generate an augmented image and adjust steering angle.
     (The steering angle is associated with the center image)
     """
     image, steering_angle = choose_image(data_dir, center, left, right, steering_angle)
@@ -138,23 +139,203 @@ def batch_generator(data_dir, image_paths, steering_angles, batch_size, is_train
     """
     Generate training image give image paths and associated steering angles
     """
-    images = np.empty([batch_size, IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS])
-    steers = np.empty(batch_size)
-    while True:
-        i = 0
-        for index in np.random.permutation(image_paths.shape[0]):
-            center, left, right = image_paths[index]
-            steering_angle = steering_angles[index]
-            # argumentation
-            if is_training and np.random.rand() < 0.6:
-                image, steering_angle = augument(data_dir, center, left, right, steering_angle)
-            else:
-                image = load_image(data_dir, center) 
-            # add the image and steering angle to the batch
-            images[i] = preprocess(image)
-            steers[i] = steering_angle
-            i += 1
-            if i == batch_size:
-                break
-        yield images, steers
+    num_samples = image_paths.shape[0]
+    while True:  # Loop forever so the generator never terminates
+        # Shuffle indices once per epoch
+        shuffled_indices = np.random.permutation(np.arange(num_samples))
+        for offset in range(0, num_samples, batch_size):
+            # Select a batch of shuffled indices
+            batch_indices = shuffled_indices[offset:offset+batch_size]
+            
+            # Initialize arrays for storing batch data
+            images = np.empty([len(batch_indices), IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS])
+            steers = np.empty(len(batch_indices))
+            
+            # Iterate over the batch and populate the arrays
+            for i, batch_index in enumerate(batch_indices):
+                center, left, right = image_paths[batch_index]
+                steering_angle = steering_angles[batch_index]
+                
+                # Argumentation
+                if is_training and np.random.rand() < 0.6:
+                    image, steering_angle = augment(data_dir, center, left, right, steering_angle)
+                else:
+                    image = load_image(data_dir, center)
+                
+                # Preprocess the image and add to the batch
+                images[i] = preprocess(image)
+                steers[i] = steering_angle
+            
+            yield images, steers
 
+def batch_generator_with_speed_input(data_dir, image_paths_and_speeds, steering_angles, batch_size, is_training):
+    """
+    Generate training image give image paths, speed, and associated steering angles
+    """
+    num_samples = len(image_paths_and_speeds)
+    while True:  # Loop forever so the generator never terminates
+        shuffled_indices = np.random.permutation(np.arange(num_samples))
+        for offset in range(0, num_samples, batch_size):
+            batch_indices = shuffled_indices[offset:offset + batch_size]
+            
+            images = np.empty([len(batch_indices), IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS])
+            speeds = np.empty(len(batch_indices))
+            steers = np.empty(len(batch_indices))
+            
+            for i, batch_index in enumerate(batch_indices):
+                center, left, right, speed = image_paths_and_speeds[batch_index]  # Adjusted to include speed
+                steering_angle = steering_angles[batch_index]
+                
+                if is_training and np.random.rand() < 0.6:
+                    image, steering_angle = augment(data_dir, center, left, right, steering_angle)
+                else:
+                    image = load_image(data_dir, center)
+                
+                images[i] = preprocess(image)
+                speeds[i] = speed  # Capture the speed value
+                steers[i] = steering_angle
+            
+            # Modify the yield to include speed as an input alongside images
+            yield [images, speeds], steers
+
+def batch_generator_with_speed_throttle(data_dir, image_paths_and_speeds, controls, batch_size, is_training):
+    """
+    Generate training image give image paths, speed, and associated steering angles
+    """
+    num_samples = len(image_paths_and_speeds)
+    while True:  # Loop forever so the generator never terminates
+        shuffled_indices = np.random.permutation(np.arange(num_samples))
+        for offset in range(0, num_samples, batch_size):
+            batch_indices = shuffled_indices[offset:offset + batch_size]
+            
+            images = np.empty([len(batch_indices), IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS])
+            speeds = np.empty(len(batch_indices))
+            steers = np.empty(len(batch_indices))
+            throttles = np.empty(len(batch_indices))
+            
+            for i, batch_index in enumerate(batch_indices):
+                center, left, right, speed = image_paths_and_speeds[batch_index]  # Adjusted to include speed
+                steering_angle, throttle = controls[batch_index]
+                
+                if is_training and np.random.rand() < 0.6:
+                    image, steering_angle = augment(data_dir, center, left, right, steering_angle)
+                else:
+                    image = load_image(data_dir, center)
+                
+                images[i] = preprocess(image)
+                speeds[i] = speed  # Capture the speed value
+                steers[i] = steering_angle
+                throttles[i] = throttle
+            
+            # Modify the yield to include speed as an input alongside images
+            yield [images, speeds], [steers, throttles]
+
+def preprocess_pytorch_tensor(X, Y, data_dir, is_training):
+
+    num_images = len(X)
+    image_shape = (3, 66, 200)  
+    augmented_inputs = torch.empty((num_images, *image_shape), dtype=torch.float32)
+    augmented_outputs = torch.empty((num_images, 1), dtype=torch.float32)  
+    for i in range(num_images):
+        center, left, right = X[i]
+        steering_angle = Y[i]
+
+        if is_training and torch.rand(1).item() < 0.6:
+            # Apply augmentation
+            image, new_steering_angle = augment(data_dir, center, left, right, steering_angle)
+        else:
+            # Load the center image
+            image = load_image(data_dir, center)
+            new_steering_angle = steering_angle
+
+        image = preprocess(image)
+        image = torch.from_numpy(image).float()
+        image = image.permute(2, 0, 1)  # Rearrange [H, W, C] to [C, H, W]
+
+        augmented_inputs[i] = image
+        augmented_outputs[i] = torch.tensor(new_steering_angle, dtype=torch.float32)
+
+    return augmented_inputs, augmented_outputs
+
+def preprocess_pytorch_speed(X, Y, data_dir, is_training):
+    num_images = len(X)
+    
+    augmented_inputs = []
+    augmented_outputs = torch.empty((num_images, 1), dtype=torch.float32)
+    
+    for i in range(num_images):
+        center, left, right, current_speed = X[i]
+        steering_angle = Y[i]
+
+        if is_training and torch.rand(1).item() < 0.6:
+            # Apply augmentation
+            image, new_steering_angle = augment(data_dir, center, left, right, steering_angle)
+        else:
+            # Load the center image
+            image = load_image(data_dir, center)
+            new_steering_angle = steering_angle
+
+        image = preprocess(image)
+        image = torch.from_numpy(image).float()
+        image = image.permute(2, 0, 1)  # Rearrange [H, W, C] to [C, H, W]
+
+        # Store the image and corresponding speed as a tuple
+        augmented_inputs.append((image, torch.tensor([current_speed], dtype=torch.float32)))
+
+        augmented_outputs[i] = torch.tensor(new_steering_angle, dtype=torch.float32)
+
+    images = torch.stack([x[0] for x in augmented_inputs])
+    speeds = torch.stack([x[1] for x in augmented_inputs]).squeeze(1)  # Remove extra dimension from speed values
+
+    return (images, speeds), augmented_outputs
+
+class CustomDataset(Dataset):
+
+
+    def __init__(self, inputs, targets):
+        """
+        Args:
+            inputs (tuple): A tuple containing two tensors - images and speeds.
+            targets (Tensor): A tensor containing the target values (e.g., steering angles).
+        """
+        self.images = inputs[0]
+        self.speeds = inputs[1]
+        self.targets = targets
+
+    def __len__(self):
+        return len(self.targets)
+
+    def __getitem__(self, idx):
+        image = self.images[idx]
+        speed = self.speeds[idx]
+        target = self.targets[idx]
+        return (image, speed), target
+    
+def preprocess_pytorch_speed_throttle(X, Y, data_dir, is_training):
+    num_images = len(X)
+    
+    augmented_inputs = []
+    augmented_outputs = torch.empty((num_images, 2), dtype=torch.float32)  # Adjust for 2 outputs
+    
+    for i in range(num_images):
+        center, left, right, current_speed = X[i]
+        steering_angle, throttle = Y[i]  # Unpack both steering and throttle values
+
+        if is_training and torch.rand(1).item() < 0.6:
+            image, new_steering_angle = augment(data_dir, center, left, right, steering_angle)
+            # Assume augment function does not change throttle value, so we use the original throttle value
+        else:
+            image = load_image(data_dir, center)
+            new_steering_angle = steering_angle
+
+        image = preprocess(image)
+        image = torch.from_numpy(image).float()
+        image = image.permute(2, 0, 1)
+
+        augmented_inputs.append((image, torch.tensor([current_speed], dtype=torch.float32)))
+        augmented_outputs[i] = torch.tensor([new_steering_angle, throttle], dtype=torch.float32)
+
+    images = torch.stack([x[0] for x in augmented_inputs])
+    speeds = torch.stack([x[1] for x in augmented_inputs]).squeeze(1)
+
+    return (images, speeds), augmented_outputs
